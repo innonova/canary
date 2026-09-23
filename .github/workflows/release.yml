@@ -1,0 +1,30 @@
+# On a version tag: build a static linux/amd64 binary, sign it keyless
+# with cosign (Sigstore) using this workflow's identity, and publish
+# asset + bundle as a GitHub release. The iac deploy verifies the bundle
+# against this repository and workflow before installing.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write   # create the release
+  id-token: write   # keyless signing
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with: { go-version: "1.24" }
+      - name: build
+        run: |
+          mkdir -p dist/bin
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" -o dist/bin/canary .
+          tar -C dist -czf canary-linux-amd64.tar.gz bin
+          sha256sum canary-linux-amd64.tar.gz > canary-linux-amd64.tar.gz.sha256
+      - uses: sigstore/cosign-installer@v3
+      - name: sign
+        run: cosign sign-blob --yes --bundle canary-linux-amd64.tar.gz.sigstore.json canary-linux-amd64.tar.gz
+      - name: release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "canary $GITHUB_REF_NAME" canary-linux-amd64.tar.gz canary-linux-amd64.tar.gz.sha256 canary-linux-amd64.tar.gz.sigstore.json
