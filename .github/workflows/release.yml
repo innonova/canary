@@ -22,9 +22,16 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" -o dist/bin/canary .
           tar -C dist -czf canary-linux-amd64.tar.gz bin
           sha256sum canary-linux-amd64.tar.gz > canary-linux-amd64.tar.gz.sha256
+          # a static site too, so the estate's release-site path can be exercised
+          mkdir -p site
+          printf '<!doctype html><title>canary site</title><h1>canary site %s</h1>\n' "$GITHUB_REF_NAME" > site/index.html
+          tar -C site -czf canary-site.tar.gz .
+          sha256sum canary-site.tar.gz > canary-site.tar.gz.sha256
       - uses: sigstore/cosign-installer@v3
       - name: sign
-        run: cosign sign-blob --yes --bundle canary-linux-amd64.tar.gz.sigstore.json canary-linux-amd64.tar.gz
+        run: |
+          cosign sign-blob --yes --bundle canary-linux-amd64.tar.gz.sigstore.json canary-linux-amd64.tar.gz
+          cosign sign-blob --yes --bundle canary-site.tar.gz.sigstore.json canary-site.tar.gz
       - name: release
         env: { GH_TOKEN: "${{ github.token }}" }
-        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "canary $GITHUB_REF_NAME" canary-linux-amd64.tar.gz canary-linux-amd64.tar.gz.sha256 canary-linux-amd64.tar.gz.sigstore.json
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "canary $GITHUB_REF_NAME" canary-linux-amd64.tar.gz canary-linux-amd64.tar.gz.sha256 canary-linux-amd64.tar.gz.sigstore.json canary-site.tar.gz canary-site.tar.gz.sha256 canary-site.tar.gz.sigstore.json
