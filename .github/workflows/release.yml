@@ -27,7 +27,7 @@ jobs:
           printf '<!doctype html><title>canary site</title><h1>canary site %s</h1>\n' "$GITHUB_REF_NAME" > site/index.html
           tar -C site -czf canary-site.tar.gz .
           sha256sum canary-site.tar.gz > canary-site.tar.gz.sha256
-      - uses: sigstore/cosign-installer@v4
+      - uses: sigstore/cosign-installer@v4.1.2
       - name: sign
         run: |
           cosign sign-blob --yes --bundle canary-linux-amd64.tar.gz.sigstore.json canary-linux-amd64.tar.gz
